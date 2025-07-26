@@ -41,15 +41,37 @@ router.post("/login", async (req, res) => {
   if (!user) return res.status(401).json({ message: "Unauthorized User" });
 
   if (password === user.password) {
-    return res.json({ message: "User is Authenticated" });
+    const token = jwt.sign({ id: user._id }, process.env.SECRET_KEY);
+    res.cookie("token", token);
+    return res.json({ message: "User Logged In Succefully", token });
   }
 });
 
 // Getting User Data
-router.get("/user", (req, res) => {
+router.get("/user", async (req, res) => {
   const { token } = req.cookies;
   if (!token) return res.status(401).json({ message: "Unauthorized User" });
-  const decoded = jwt.verify(token, process.env.SECRET_KEY);
-  
+
+  try {
+    const decoded = jwt.verify(token, process.env.SECRET_KEY);
+
+    const userData = await userModel
+      .findOne({
+        _id: decoded.id,
+      })
+      .select("-password");
+    res.json({ message: "User fetched", userData });
+  } catch (error) {
+    return res.status(401).json({ error: "Unauthorized User,Invalid token" });
+  }
 });
 module.exports = router;
+
+//Logout user
+
+router.get("/logout", (req, res) => {
+  res.clearCookie("token");
+  res.status(200).json({
+    message: "User Logged out",
+  });
+});
